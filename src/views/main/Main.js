@@ -5,7 +5,9 @@ import {
   Text,
   View,
   Dimensions,
-  Image
+  Image,
+  Button,
+  ToastAndroid
 } from 'react-native';
 
 // Tensorflow.js Modules
@@ -16,6 +18,8 @@ import {
 } from '@tensorflow/tfjs-react-native';
 
 import * as handpose from '@tensorflow-models/handpose';
+
+import {mostFrequent } from './../../utils/utils'
 
 // Gesture Images
 const thumbsUpImage = require('./../../assets/like.png')
@@ -47,11 +51,12 @@ class TrackHandsScreen extends React.Component {
       type: Camera.Constants.Type.front, // Defines the default camera type that will be used in the application
       frameCounter: 0,
       predictions: {},
-      thumb: [100, 100, 100],
-      pinky: [100, 100, 100],
       result: 0,
+      processing: true,
     };
   }
+
+  predictions = []
 
   /*
     Requests access to the camera asynchronously;
@@ -89,46 +94,40 @@ class TrackHandsScreen extends React.Component {
 
   }
 
+  showToast = (msg) => {
+    ToastAndroid.show(msg, ToastAndroid.SHORT);
+  };
+
+  // Function to start hand gesture detection
+  startProcess = () => {
+    this.showToast("Next question!")
+    this.setState({
+      processing: true,
+      result: 0
+    })
+  }
+
+  // Function to end hand gesture detection
+  endProcess = () => {
+    this.setState({
+      processing: false,
+    })
+  }
+
   handleCameraStream = (images, updatePreview, gl) => {
     console.log("gl capabilities -->", detectGLCapabilities(gl));
 
     const loop = async () => {
       const nextImageTensor = await images.next().value;
 
-      if (this.state.frameCounter % 10 == 0) {
+      if (this.state.frameCounter % 3 == 0) {
         const hand = await this.model.estimateHands(nextImageTensor);
 
         console.log("hands found ==>", hand.length)
 
         if (hand.length > 0) {
-          // console.log(JSON.stringify(hand))
           this.predictGesture(hand)
           this.setState({ predictions: hand })
-
-          // const GE = new fp.GestureEstimator([
-          //   fp.Gestures.ThumbsUpGesture,
-          //   thumbsDownGesture
-          // ]);
-          // const gesture = await GE.estimate(hand[0].landmarks, 4);
-          // if (gesture.gestures !== undefined && gesture.gestures.length > 0) {
-          //   console.log("gesture.gesture ==>", gesture.gestures);
-
-          //   const confidence = gesture.gestures.map(
-          //     (prediction) => prediction.confidence
-          //   );
-          //   const maxConfidence = confidence.indexOf(
-          //     Math.max.apply(null, confidence)
-          //   );
-          //   console.log("final ==>", gesture.gestures[maxConfidence].name);
-          //   // setEmoji(gesture.gestures[maxConfidence].name);
-          //   this.setState({
-          //     result: gesture.gestures[maxConfidence].name === "thumbs_up"
-          //       ? 1
-          //       : gesture.gestures[maxConfidence].name === "thumbs_down"
-          //         ? 2
-          //         : 0
-          //   })
-          // }
         }
         else {
           this.setState({
@@ -156,85 +155,55 @@ class TrackHandsScreen extends React.Component {
     loop();
   };
 
-  predictGesture(resultant) {
+  predictGesture = (resultant) => {
+    // For 3D landmarks
     // x at index 0
     // y at index 1
     // z at index 2
-    // console.log(JSON.stringify(resultant))
-
 
     const thumbTip = resultant[0].landmarks[4]
 
-    const indexTip = resultant[0].landmarks[8]
-    const middleTip = resultant[0].landmarks[12]
-    const ringTip = resultant[0].landmarks[16]
-    const pinkyTip = resultant[0].landmarks[20]
-
     const indexJoint = resultant[0].landmarks[5]
-    const middleJoint = resultant[0].landmarks[9]
-    const ringJoint = resultant[0].landmarks[13]
     const pinkyJoint = resultant[0].landmarks[17]
 
-    this.setState({
-      thumb: thumbTip,
-      pinky: pinkyJoint
-    })
 
-    console.log("======================================")
+    const isValid = Math.abs(indexJoint[0] - pinkyJoint[0]) < 50
 
-    console.log("index length ==>", Math.abs(indexJoint[0] - indexTip[0]))
-    console.log("middle length ==>", Math.abs(middleJoint[0] - middleTip[0]))
-    console.log("ring length ==>", Math.abs(ringJoint[0] - ringTip[0]))
-    console.log("pinky length ==>", Math.abs(pinkyJoint[0] - pinkyTip[0]))
+    const pinkyGreaterThanIndex = indexJoint[1] < pinkyJoint[1]
+    const pinkyGreaterThanThumb = thumbTip[1] < pinkyJoint[1]
 
-    console.log("--------------------------------------")
+    const isUp = pinkyGreaterThanIndex && pinkyGreaterThanThumb
+    const isDown = !pinkyGreaterThanIndex && !pinkyGreaterThanThumb
 
-    console.log("index joint x ==>", indexJoint[0])
-    console.log("pinky joint x ==>", pinkyJoint[0])
-
-    console.log("joint difference x ==>", Math.abs(indexJoint[0] - pinkyJoint[0]))
-
-    console.log("--------------------------------------")
-
-    console.log("thumb tip y ==>", thumbTip[1])
-    console.log("pinky joint y ==>", pinkyJoint[1])
-
-    console.log("--------------------------------------")
-
-    console.log("is valid ==>", Math.abs(indexJoint[0] - pinkyJoint[0]) < 20)
-    console.log("is thumb up ==>", thumbTip[1] < pinkyJoint[1])
-
-    console.log("--------------------------------------")
-
-    const isValid = Math.abs(indexJoint[0] - pinkyJoint[0]) < 20
-    const isUp = thumbTip[1] < pinkyJoint[1]
-
-    console.log("result ==>", isValid
+    const result = isValid
       ? isUp
-        ? "thumbs up"
-        : "thumbs down"
-      : "invalid")
+        ? 1
+        : isDown
+          ? 2
+          : 0
+      : 0
 
-    console.log("======================================")
+    this.predictions = [...this.predictions, result]
 
-    this.setState({
-      result: isValid
-        ? isUp
-          ? 1
-          : 2
-        : 0
-    })
+    if (this.predictions.length > 2) {
+      console.log("modded result ==> ", mostFrequent(this.predictions))
+      this.setState({
+        result: mostFrequent(this.predictions)
+      })
+      this.predictions = [];
+      this.endProcess()
+
+      // some delay to display the detected gesture
+      setTimeout(() => {
+        this.startProcess()
+      }, 3000);
+    }
 
   }
 
   renderTensorCamera(textureDims, tensorDims) {
     return (
       <View>
-        {false ? (
-          <Text style={styles.detectionText}>
-            Estimating hands. Check log at the console.
-          </Text>
-        ) : null}
         <TensorCamera
           // Standard Camera props
           style={styles.tfCameraView}
@@ -248,8 +217,6 @@ class TrackHandsScreen extends React.Component {
           onReady={this.handleCameraStream}
           autorender={false}
         />
-
-
       </View>
     );
   }
@@ -271,7 +238,11 @@ class TrackHandsScreen extends React.Component {
       // Loads the TensorCamera component and enables camera preview if showTensor === true
       return (
         <View style={styles.absoluteBackground}>
-          {this.renderTensorCamera(textureDims, tensorDims)}
+          {
+            this.state.processing
+              ? this.renderTensorCamera(textureDims, tensorDims)
+              : null
+          }
           <View style={{
             position: 'absolute',
             top: 0,
@@ -283,6 +254,17 @@ class TrackHandsScreen extends React.Component {
             justifyContent: 'center',
             alignItems: 'center',
           }}>
+            <Text style={{
+              fontSize: 18,
+              color: 'black',
+              paddingHorizontal: 40,
+              textAlign: 'center',
+              marginBottom: 40
+            }}>
+              This is a dummy question for your feedback,
+              please provide your valuable feedback by
+              showing a thumbs up if you agree and thumbs down if you don't.
+            </Text>
             <View style={{
               width: 200,
               height: 200,
@@ -327,7 +309,6 @@ class TrackHandsScreen extends React.Component {
       );
     } else {
       // Initial loading screen
-      // return this.loadingScreen(isTfReady, isModelReady, hasPermission);
       return (<View style={{
         flex: 1,
         textAlign: 'center',
