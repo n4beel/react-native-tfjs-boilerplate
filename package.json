@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@react-native-community/async-storage": "^1.12.1",
-    "@react-native-community/masked-view": "^0.1.10",
-    "@react-navigation/native": "^5.8.9",
+    "@react-native-community/masked-view": "^0.1.11",
+    "@react-navigation/native": "^5.9.4",
     "@react-navigation/stack": "^5.12.6",
     "@tensorflow-models/handpose": "0.0.7",
     "@tensorflow/tfjs": "3.7.0",
