@@ -1,3 +1,17 @@
-import Main from './Main';
+// import Main from './Main';
 
-export {Main};
+import React from 'react'
+import { View, Text } from 'react-native'
+
+const Index = () => {
+    return (
+        <View>
+            <Text>abcd</Text>
+        </View>
+    )
+}
+
+
+
+
+export { Index };

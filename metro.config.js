@@ -5,23 +5,36 @@
  * @format
  */
 
-const {getDefaultConfig} = require('metro-config');
+// const { getDefaultConfig } = require('metro-config');
 
+// module.exports = (async () => {
+//   const {
+//     resolver: { assetExts },
+//   } = await getDefaultConfig();
+//   return {
+//     transformer: {
+//       getTransformOptions: async () => ({
+//         transform: {
+//           experimentalImportSupport: false,
+//           inlineRequires: true,
+//         },
+//       }),
+//     },
+//     resolver: {
+//       assetExts: [...assetExts, 'bin'],
+//     },
+//   };
+// })();
+
+
+const { getDefaultConfig } = require('metro-config');
 module.exports = (async () => {
-  const {
-    resolver: {assetExts},
-  } = await getDefaultConfig();
+  const defaultConfig = await getDefaultConfig();
+  const { assetExts } = defaultConfig.resolver;
   return {
-    transformer: {
-      getTransformOptions: async () => ({
-        transform: {
-          experimentalImportSupport: false,
-          inlineRequires: false,
-        },
-      }),
-    },
     resolver: {
+      // Add bin to assetExts
       assetExts: [...assetExts, 'bin'],
-    },
+    }
   };
 })();

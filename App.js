@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React from 'react';
 
-import { MainStack } from './src/navigation';
+import TrackHandsScreen from './src/views/main/Main';
 
 const App = () => {
-  return <MainStack />;
+  return <TrackHandsScreen />;
 };
 
 export default App;

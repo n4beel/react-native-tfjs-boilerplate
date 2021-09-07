@@ -1,5 +1,5 @@
-// React Native Modules
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
 import {
   StyleSheet,
   Text,
@@ -19,7 +19,7 @@ import {
 
 import * as handpose from '@tensorflow-models/handpose';
 
-import {mostFrequent } from './../../utils/utils'
+import { mostFrequent } from './../../utils/utils'
 
 // Gesture Images
 const thumbsUpImage = require('./../../assets/like.png')
@@ -41,28 +41,51 @@ const TensorCamera = cameraWithTensors(Camera);
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-class TrackHandsScreen extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      isTfReady: false, // Determines if the TensorFlow module is loaded
-      isModelReady: false, // Determines if @tensorflow-models/handpose model is loaded
-      hasPermission: null, // Determines if the user has granted permission to access the cameras
-      type: Camera.Constants.Type.front, // Defines the default camera type that will be used in the application
-      frameCounter: 0,
-      predictions: {},
-      result: 0,
-      processing: true,
-    };
-  }
+const TrackHandsScreen = () => {
 
-  predictions = []
+  const [isTfReady, setIsTfReady] = useState(false) // Determines if the TensorFlow module is loaded
+  const [isModelReady, setIsModelReady] = useState(false) // Determines if @tensorflow-models/handpose model is loaded
+  const [hasPermission, setHasPermission] = useState(null) // Determines if the user has granted permission to access the cameras
+  const [type, setType] = useState(Camera.Constants.Type.front) // Defines the default camera type that will be used in the application
+  const [frameCounter, setFrameCounter] = useState(0)
+  const [result, setResult] = useState(0)
+  const [processing, setProcessing] = useState(true)
+
+  const predictionsArray = []
+
+  useEffect(() => {
+
+    (async () => {
+      // Change state to indicate TensorFlow module is loaded
+      await tf.ready();
+      setIsTfReady(true)
+
+      // Change the state to indicate that the Handpose model is loaded
+      model = await handpose.load({
+        maxContinuousChecks: 2,
+        detectionConfidence: 0.4,
+        iouThreshold: 0.4,
+        scoreThreshold: 0.80,
+      });
+
+      setIsModelReady(true)
+
+      // Request user permission to access cameras
+      getPermissionAsync();
+      const { status } = await Permissions.askAsync(Permissions.CAMERA);
+
+      // Determines whether the user has granted permission to access the cameras or not
+      setHasPermission(status === 'granted')
+
+    })()
+
+  }, [])
 
   /*
     Requests access to the camera asynchronously;
     If not granted, the app will not work;
   */
-  getPermissionAsync = async () => {
+  const getPermissionAsync = async () => {
     if (Constants.platform.ios) {
       const { status } = await Permissions.askAsync(Permissions.MEDIA_LIBRARY);
       if (status !== 'granted') {
@@ -71,71 +94,43 @@ class TrackHandsScreen extends React.Component {
     }
   };
 
-  async componentDidMount() {
-    // Change state to indicate TensorFlow module is loaded
-    await tf.ready();
-    this.setState({ isTfReady: true });
 
-    // Change the state to indicate that the Handpose model is loaded
-    this.model = await handpose.load({
-      maxContinuousChecks: 2,
-      detectionConfidence: 0.4,
-      iouThreshold: 0.4,
-      scoreThreshold: 0.80,
-    });
-    this.setState({ isModelReady: true });
 
-    // Request user permission to access cameras
-    this.getPermissionAsync();
-    const { status } = await Permissions.askAsync(Permissions.CAMERA);
-
-    // Determines whether the user has granted permission to access the cameras or not
-    this.setState({ hasPermission: status === 'granted' });
-
-  }
-
-  showToast = (msg) => {
+  const showToast = (msg) => {
     ToastAndroid.show(msg, ToastAndroid.SHORT);
   };
 
   // Function to start hand gesture detection
-  startProcess = () => {
-    this.showToast("Next question!")
-    this.setState({
-      processing: true,
-      result: 0
-    })
+  const startProcess = () => {
+    showToast("Next question!")
+    setProcessing(true)
+    setResult(0)
   }
 
   // Function to end hand gesture detection
-  endProcess = () => {
-    this.setState({
-      processing: false,
-    })
+  const endProcess = () => {
+    setProcessing(false)
   }
 
-  handleCameraStream = (images, updatePreview, gl) => {
+  const handleCameraStream = (images, updatePreview, gl) => {
     console.log("gl capabilities -->", detectGLCapabilities(gl));
 
     const loop = async () => {
       const nextImageTensor = await images.next().value;
 
-      if (this.state.frameCounter % 3 == 0) {
-        const hand = await this.model.estimateHands(nextImageTensor);
+      if (frameCounter % 3 == 0) {
+        const hand = await model.estimateHands(nextImageTensor);
 
         console.log("hands found ==>", hand.length)
 
         if (hand.length > 0) {
-          this.predictGesture(hand)
-          this.setState({ predictions: hand })
+          predictGesture(hand)
         }
         else {
-          this.setState({
-            result: 0
-          })
+          setResult(0)
         }
 
-        // this.processingDrop();
+        // processingDrop();
         tf.dispose(hand)
       }
       tf.dispose(nextImageTensor)
@@ -147,7 +142,7 @@ class TrackHandsScreen extends React.Component {
       updatePreview();
       gl.endFrameEXP();
 
-      this.setState({ frameCounter: this.state.frameCounter + 1 });
+      setFrameCounter(frameCounter + 1)
 
       // Function that receives the next frame and returns to the beginning of the loop
       requestAnimationFrame(loop);
@@ -155,7 +150,7 @@ class TrackHandsScreen extends React.Component {
     loop();
   };
 
-  predictGesture = (resultant) => {
+  const predictGesture = (resultant) => {
     // For 3D landmarks
     // x at index 0
     // y at index 1
@@ -183,141 +178,135 @@ class TrackHandsScreen extends React.Component {
           : 0
       : 0
 
-    this.predictions = [...this.predictions, result]
+    predictionsArray = [...predictionsArray, result]
 
-    if (this.predictions.length > 2) {
-      console.log("modded result ==> ", mostFrequent(this.predictions))
-      this.setState({
-        result: mostFrequent(this.predictions)
-      })
-      this.predictions = [];
-      this.endProcess()
+    if (predictionsArray.length > 2) {
+      console.log("modded result ==> ", mostFrequent(predictionsArray))
+      setResult(mostFrequent(predictionsArray))
+
+      predictionsArray = [];
+      endProcess()
 
       // some delay to display the detected gesture
       setTimeout(() => {
-        this.startProcess()
+        startProcess()
       }, 3000);
     }
 
   }
 
-  renderTensorCamera(textureDims, tensorDims) {
+  const renderTensorCamera = (textureDims, tensorDims) => {
     return (
       <View>
         <TensorCamera
           // Standard Camera props
           style={styles.tfCameraView}
-          type={this.state.type}
+          type={type}
           // Tensor related props
           cameraTextureHeight={textureDims.height}
           cameraTextureWidth={textureDims.width}
           resizeHeight={tensorDims.height}
           resizeWidth={tensorDims.width}
           resizeDepth={3}
-          onReady={this.handleCameraStream}
+          onReady={handleCameraStream}
           autorender={false}
         />
       </View>
     );
   }
 
-  render() {
-    const textureDims =
-      Platform.OS === 'ios'
-        ? { height: 1920, width: 1080 }
-        : { height: 1200, width: 1600 };
-    const tensorDims = { width: 200, height: 200 };
 
-    const {
-      isTfReady,
-      isModelReady,
-      hasPermission,
-    } = this.state;
+  const textureDims =
+    Platform.OS === 'ios'
+      ? { height: 1920, width: 1080 }
+      : { height: 1200, width: 1600 };
+  const tensorDims = { width: 200, height: 200 };
 
-    if (hasPermission === true) {
-      // Loads the TensorCamera component and enables camera preview if showTensor === true
-      return (
-        <View style={styles.absoluteBackground}>
-          {
-            this.state.processing
-              ? this.renderTensorCamera(textureDims, tensorDims)
-              : null
-          }
+
+  if (hasPermission === true) {
+    // Loads the TensorCamera component and enables camera preview if showTensor === true
+    return (
+      <View style={styles.absoluteBackground}>
+        {
+          processing
+            ? renderTensorCamera(textureDims, tensorDims)
+            : null
+        }
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          height: SCREEN_HEIGHT,
+          width: SCREEN_WIDTH,
+          zIndex: 10,
+          backgroundColor: '#eaeaea',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <Text style={{
+            fontSize: 18,
+            color: 'black',
+            paddingHorizontal: 40,
+            textAlign: 'center',
+            marginBottom: 40
+          }}>
+            This is a dummy question for your feedback,
+            please provide your valuable feedback by
+            showing a thumbs up if you agree and thumbs down if you don't.
+          </Text>
           <View style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            height: SCREEN_HEIGHT,
-            width: SCREEN_WIDTH,
-            zIndex: 10,
-            backgroundColor: '#eaeaea',
+            width: 200,
+            height: 200,
+            borderRadius: 100,
+            shadowColor: result === 1 ? "#009138" : "#000",
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.23,
+            shadowRadius: 2.62,
+
+            elevation: 4,
+            backgroundColor: result === 1 ? "#009138" : 'white',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 60
+          }}>
+            <Image style={{ width: 120, height: 120 }} source={thumbsUpImage} />
+          </View>
+          <View style={{
+            width: 200,
+            height: 200,
+            borderRadius: 100,
+            shadowColor: result === 2 ? "#009138" : "#000",
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.23,
+            shadowRadius: 2.62,
+
+            elevation: 4,
+            backgroundColor: result === 2 ? "#009138" : 'white',
             justifyContent: 'center',
             alignItems: 'center',
           }}>
-            <Text style={{
-              fontSize: 18,
-              color: 'black',
-              paddingHorizontal: 40,
-              textAlign: 'center',
-              marginBottom: 40
-            }}>
-              This is a dummy question for your feedback,
-              please provide your valuable feedback by
-              showing a thumbs up if you agree and thumbs down if you don't.
-            </Text>
-            <View style={{
-              width: 200,
-              height: 200,
-              borderRadius: 100,
-              shadowColor: this.state.result === 1 ? "#009138" : "#000",
-              shadowOffset: {
-                width: 0,
-                height: 2,
-              },
-              shadowOpacity: 0.23,
-              shadowRadius: 2.62,
-
-              elevation: 4,
-              backgroundColor: this.state.result === 1 ? "#009138" : 'white',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginBottom: 60
-            }}>
-              <Image style={{ width: 120, height: 120 }} source={thumbsUpImage} />
-            </View>
-            <View style={{
-              width: 200,
-              height: 200,
-              borderRadius: 100,
-              shadowColor: this.state.result === 2 ? "#009138" : "#000",
-              shadowOffset: {
-                width: 0,
-                height: 2,
-              },
-              shadowOpacity: 0.23,
-              shadowRadius: 2.62,
-
-              elevation: 4,
-              backgroundColor: this.state.result === 2 ? "#009138" : 'white',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-              <Image style={{ width: 120, height: 120 }} source={thumbsDownImage} />
-            </View>
+            <Image style={{ width: 120, height: 120 }} source={thumbsDownImage} />
           </View>
         </View>
-      );
-    } else {
-      // Initial loading screen
-      return (<View style={{
-        flex: 1,
-        textAlign: 'center',
-        alignItems: 'center'
-      }}>
-        <Text>Loading</Text>
-      </View>)
-    }
+      </View>
+    );
+  } else {
+    // Initial loading screen
+    return (<View style={{
+      flex: 1,
+      textAlign: 'center',
+      alignItems: 'center'
+    }}>
+      <Text>Loading</Text>
+    </View>)
   }
+
 }
 
 const styles = StyleSheet.create({
