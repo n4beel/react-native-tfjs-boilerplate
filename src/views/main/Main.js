@@ -32,7 +32,6 @@ require('@tensorflow/tfjs-backend-webgl'); // Necessary
 import { Camera } from 'expo-camera';
 import Constants from 'expo-constants';
 import * as Permissions from 'expo-permissions';
-// import thumbsDownGesture from '../../helpers/thumbs_down';
 
 // High order component to use camera functions
 const TensorCamera = cameraWithTensors(Camera);
@@ -51,7 +50,7 @@ const TrackHandsScreen = () => {
   const [result, setResult] = useState(0)
   const [processing, setProcessing] = useState(true)
 
-  const predictionsArray = []
+  let predictionsArray = []
 
   useEffect(() => {
 
@@ -93,8 +92,6 @@ const TrackHandsScreen = () => {
       }
     }
   };
-
-
 
   const showToast = (msg) => {
     ToastAndroid.show(msg, ToastAndroid.SHORT);
@@ -306,7 +303,6 @@ const TrackHandsScreen = () => {
       <Text>Loading</Text>
     </View>)
   }
-
 }
 
 const styles = StyleSheet.create({

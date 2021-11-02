@@ -1,18 +1,9 @@
-[![Logo](https://livejones.com/wp-content/uploads/2020/05/logo-Placeholder.png 'Logo')](https://YOUR_PROJECT_WEBSITE.io)
-
-# YOUR_PROJECT_NAME Mobile App
-
-## Preview
-
-- [Google Play Store](https://play.google.com/store/apps/details?id=YOUR_APP_BUNDLE_ID)
-- [App Store]() `Coming soon`
+# React Native Tensorflow.js Boilerplate
 
 ## Technology
 
 - [React](https://reactjs.org/) + [Redux](https://redux.js.org/) + [React Native](https://facebook.github.io/react-native/)
-- [React Navigation](https://reactnavigation.org/)
-- [Axios](https://github.com/axios/axios)
-- [YOUR_OTHER_PACKAGES](https://facebook.github.io/react-native/)
+- [tfjs-react-native](https://www.npmjs.com/package/@tensorflow/tfjs-react-native)
 
 ## Requirements
 
@@ -44,6 +35,8 @@ yarn run test
 # lint code
 yarn run lint
 ```
+
+Edit `src/views/main/Main.js`
 
 ## Development build
 
